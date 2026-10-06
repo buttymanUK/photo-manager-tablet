@@ -168,7 +168,7 @@ const AUTH = "https://login.microsoftonline.com/consumers/oauth2/v2.0";
 const SCOPES = "Files.ReadWrite.AppFolder offline_access";
 const GRAPH = "https://graph.microsoft.com/v1.0";
 const MARK = "photo-manager-tablet.txt";
-const REDIRECT = location.origin + location.pathname;
+const REDIRECT = location.origin + location.pathname.replace(/index\.html$/, "");
 const store = { get: k => { try { return localStorage.getItem(k); } catch (e) { return null; } },
   set: (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch (e) {} } };
 const b64url = buf => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
