@@ -1,0 +1,853 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#15181e">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="referrer" content="no-referrer">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Photos</title>
+<style>
+/* Photo Manager on the tablet, with the PC off: the PC's tablet copy, read from your OneDrive. Looks like the phone app. */
+:root {
+  --bg: #15181e; --bg2: #1d2129; --bg3: #262b35; --line: #323846;
+  --paper: #f1efe9; --ink2: #b4bac5; --ink3: #7e8796;
+  --gold: #f2c35b; --gold-ink: #1f2329; --yes: #2fa866; --no: #e5484d;
+  --serif: "Noto Serif", Georgia, "Times New Roman", serif;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --safe-b: env(safe-area-inset-bottom, 0px); --safe-t: env(safe-area-inset-top, 0px);
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--paper); font-family: var(--sans);
+  font-size: 16px; overscroll-behavior: none; }
+body { display: flex; flex-direction: column; height: 100dvh; overflow: hidden; }
+button { font: inherit; color: inherit; border: 0; background: none; cursor: pointer; }
+button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+img { display: block; -webkit-user-drag: none; user-select: none; }
+.hidden { display: none !important; }
+
+header { display: flex; align-items: center; gap: 10px; padding: calc(10px + var(--safe-t)) 16px 8px; }
+header h1 { font-family: var(--serif); font-weight: 600; font-size: 22px; margin: 0; flex: 1; min-width: 0;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+header .sub { color: var(--ink3); font-size: 13px; white-space: nowrap; }
+.iconbtn { width: 40px; height: 40px; border-radius: 20px; display: grid; place-items: center; background: var(--bg2);
+  color: var(--ink2); font-size: 18px; flex: none; }
+main { flex: 1; position: relative; overflow: hidden; }
+.scroll { position: absolute; inset: 0; overflow-y: auto; padding: 4px 12px calc(16px + var(--safe-b)); }
+nav#tabs { display: flex; border-top: 1px solid var(--line); background: var(--bg); padding-bottom: var(--safe-b); }
+nav#tabs button { flex: 1; padding: 9px 0 8px; color: var(--ink3); font-size: 12px; font-weight: 600; display: flex;
+  flex-direction: column; align-items: center; gap: 2px; }
+nav#tabs button .i { font-size: 20px; line-height: 1; }
+nav#tabs button.on { color: var(--gold); }
+
+.btn { background: var(--bg2); border: 1px solid var(--line); border-radius: 999px; padding: 9px 16px; font-weight: 700;
+  font-size: 14px; color: var(--paper); }
+.btn.gold { background: var(--gold); border-color: var(--gold); color: var(--gold-ink); }
+.row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 4px 0 10px; }
+.search { display: flex; align-items: center; gap: 8px; background: var(--bg2); border: 1px solid var(--line);
+  border-radius: 999px; padding: 0 14px; color: var(--ink3); flex: 1; min-width: 180px; }
+.search input { flex: 1; min-width: 0; background: none; border: 0; color: var(--paper); font: inherit; padding: 10px 0; outline: none; }
+.chip { background: var(--bg2); border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; font-size: 13px;
+  font-weight: 700; color: var(--ink2); white-space: nowrap; }
+.chip.on { background: var(--gold); color: var(--gold-ink); border-color: var(--gold); }
+.years { display: flex; gap: 6px; overflow-x: auto; padding: 2px 0 8px; scrollbar-width: none; }
+.yh { font-family: var(--serif); font-size: 22px; font-weight: 600; margin: 16px 2px 8px; }
+
+/* activities: cards with the cover photo */
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(46%, 220px), 1fr)); gap: 10px; }
+.acard { text-align: left; background: var(--bg2); border-radius: 14px; overflow: hidden; display: flex; flex-direction: column; }
+.acard .cv { position: relative; aspect-ratio: 4 / 3; background: var(--bg3); }
+.acard .cv img { width: 100%; height: 100%; object-fit: cover; }
+.acard .cv .n { position: absolute; right: 8px; bottom: 8px; background: rgba(15,17,21,.75); color: #fff; border-radius: 999px;
+  padding: 2px 9px; font-size: 12px; font-weight: 700; }
+.acard .tx { padding: 8px 11px 10px; }
+.acard .tt { font-weight: 700; font-size: 14.5px; line-height: 1.25; overflow: hidden; display: -webkit-box;
+  -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.acard .dt { color: var(--ink3); font-size: 12.5px; margin-top: 3px; }
+
+/* photo grids */
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 3px; }
+@media (min-width: 760px) { .grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); } }
+.grid .th { position: relative; aspect-ratio: 1; background: var(--bg3); overflow: hidden; padding: 0; display: block; width: 100%; }
+.acard, .pcard, .drow { padding: 0; }
+.grid .th img { width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity .25s; }
+.grid .th img.ok { opacity: 1; }
+.grid .th .bd { position: absolute; left: 5px; top: 4px; font-size: 14px; text-shadow: 0 1px 3px rgba(0,0,0,.8); color: var(--gold); }
+.grid .th.dim img { opacity: .55; }
+
+/* people */
+.pgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 12px 8px; }
+.pcard { display: flex; flex-direction: column; align-items: center; gap: 5px; text-align: center; }
+.av { position: relative; width: 84px; height: 84px; border-radius: 50%; background: var(--bg3); overflow: hidden;
+  display: grid; place-items: center; border: 2px solid var(--line); }
+.av img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.av .ltr { font-family: var(--serif); font-size: 32px; color: var(--ink2); }
+.pcard .nm { font-weight: 700; font-size: 14px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pcard .c { color: var(--ink3); font-size: 12px; }
+
+/* the full photo */
+.full { position: fixed; inset: 0; z-index: 80; background: #000; display: none; touch-action: none; }
+.full.open { display: block; }
+.full .ph { position: absolute; inset: 0; background-size: contain; background-position: center; background-repeat: no-repeat;
+  transition: transform .25s; }
+.full .bar { position: absolute; left: 0; right: 0; top: 0; display: flex; gap: 8px; align-items: center;
+  padding: calc(12px + var(--safe-t)) 14px 30px; background: linear-gradient(to bottom, rgba(0,0,0,.6), transparent); }
+.full .bar .tt { flex: 1; color: #fff; font-weight: 700; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.full .bar button, .show .bar button { background: rgba(255,255,255,.16); color: #fff; border-radius: 999px; min-width: 40px;
+  height: 40px; padding: 0 14px; font-size: 15px; font-weight: 700; }
+.full .cap { position: absolute; left: 0; right: 0; bottom: 0; padding: 40px 20px calc(18px + var(--safe-b));
+  background: linear-gradient(to top, rgba(0,0,0,.7), transparent); color: #fff; }
+.full .cap .w { font-family: var(--serif); font-size: 19px; font-weight: 600; }
+.full .cap .t { font-size: 13px; color: rgba(255,255,255,.78); margin-top: 3px; }
+.full.idle .bar, .full.idle .cap { opacity: 0; }
+.full .bar, .full .cap { transition: opacity .3s; }
+
+/* slideshow */
+.show { position: fixed; inset: 0; z-index: 90; background: #000; display: none; overflow: hidden; touch-action: none; }
+.show.open { display: block; }
+.show .sl { position: absolute; inset: 0; background-size: contain; background-position: center; background-repeat: no-repeat;
+  opacity: 0; transition: opacity 1.4s ease; }
+.show .sl.fill { background-size: cover; }
+.show .sl.on { opacity: 1; animation: kb2 9s ease-out forwards; }
+@keyframes kb2 { from { transform: scale(1.06) translate(1%, .6%); } to { transform: scale(1) translate(0, 0); } }
+.show .cap { position: absolute; left: 0; right: 0; bottom: 0; padding: 40px 20px calc(18px + var(--safe-b));
+  background: linear-gradient(to top, rgba(0,0,0,.65), transparent); color: #fff; transition: opacity .6s; }
+.show .cap .w { font-family: var(--serif); font-size: 20px; font-weight: 600; text-shadow: 0 1px 8px rgba(0,0,0,.6); }
+.show .cap .t { font-size: 13px; color: rgba(255,255,255,.75); margin-top: 2px; }
+.show .bar { position: absolute; left: 0; right: 0; top: 0; display: flex; gap: 8px; align-items: center;
+  padding: calc(12px + var(--safe-t)) 14px 30px; background: linear-gradient(to bottom, rgba(0,0,0,.6), transparent); transition: opacity .4s; }
+.show .bar .tt { flex: 1; color: #fff; font-weight: 700; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.show .prog { position: absolute; left: 0; bottom: 0; height: 3px; background: var(--gold); width: 0; }
+.show.idle .bar { opacity: 0; }
+.show .paused { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; pointer-events: none; }
+.show.ispaused .paused { display: flex; }
+.show .paused span { background: rgba(0,0,0,.55); color: #fff; border-radius: 999px; padding: 10px 18px; font-weight: 700; }
+
+/* sign in / messages */
+.center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 14px; padding: 24px; text-align: center; }
+.center h2 { font-family: var(--serif); font-weight: 600; font-size: 26px; margin: 0; }
+.center p { color: var(--ink2); max-width: 46ch; margin: 0; line-height: 1.45; }
+.spin { width: 34px; height: 34px; border-radius: 50%; border: 3px solid var(--bg3); border-top-color: var(--gold);
+  animation: sp 1s linear infinite; }
+@keyframes sp { to { transform: rotate(360deg); } }
+.note { color: var(--ink3); font-size: 13px; margin: 6px 2px 10px; }
+.sheet-bg { position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 60; display: none; }
+.sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 61; background: var(--bg2); border-radius: 22px 22px 0 0;
+  padding: 10px 0 calc(16px + var(--safe-b)); transform: translateY(105%); transition: transform .25s; max-width: 640px; margin: 0 auto; }
+.sheet.open { transform: none; }
+.sheet h2 { font-family: var(--serif); font-weight: 600; margin: 6px 20px 12px; }
+.drow { display: flex; gap: 12px; align-items: center; width: 100%; text-align: left; padding: 7px 0; }
+.drow .av { width: 44px; height: 44px; } .drow .av .ltr { font-size: 18px; }
+@media (prefers-reduced-motion: reduce) { .show .sl.on { animation: none; } .sheet { transition: none; } .spin { animation-duration: 3s; } }
+</style>
+</head>
+<body>
+<header><h1 id="title">Photos</h1><span class="sub" id="sub"></span><button class="iconbtn" id="more" aria-label="More">⋯</button></header>
+<main id="main"></main>
+<nav id="tabs" class="hidden">
+  <button data-tab="activities" class="on"><span class="i">▤</span>Activities</button>
+  <button data-tab="people"><span class="i">☺</span>People</button>
+  <button data-tab="show"><span class="i">▶</span>Slideshow</button>
+</nav>
+<div class="sheet-bg" id="sheetBg"></div>
+<div class="sheet" id="sheet"></div>
+<div class="full" id="full"></div>
+<div class="show" id="show"></div>
+<script src="config.js"></script>
+<script>
+"use strict";
+/* ---------- sign-in to your Microsoft account (OAuth with PKCE, nothing stored but the sign-in itself, on this
+   tablet). The app only asks for its own OneDrive folder (Files.ReadWrite.AppFolder) - it can't see anything else. */
+const CFG = window.PM_TABLET || {};
+const AUTH = "https://login.microsoftonline.com/consumers/oauth2/v2.0";
+const SCOPES = "Files.ReadWrite.AppFolder offline_access";
+const GRAPH = "https://graph.microsoft.com/v1.0";
+const MARK = "photo-manager-tablet.txt";
+const REDIRECT = location.origin + location.pathname;
+const store = { get: k => { try { return localStorage.getItem(k); } catch (e) { return null; } },
+  set: (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch (e) {} } };
+const b64url = buf => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+const randStr = n => b64url(crypto.getRandomValues(new Uint8Array(n)));
+
+async function signIn(prompt) {
+  const verifier = randStr(48), state = randStr(16);
+  const challenge = b64url(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier)));
+  sessionStorage.setItem("pm_pkce", JSON.stringify({ verifier, state }));
+  const q = new URLSearchParams({ client_id: CFG.clientId, response_type: "code", redirect_uri: REDIRECT, scope: SCOPES,
+    code_challenge: challenge, code_challenge_method: "S256", state, response_mode: "query" });
+  if (prompt) q.set("prompt", prompt);
+  location.assign(`${AUTH}/authorize?${q}`);
+}
+async function tokenCall(params) {
+  const r = await fetch(`${AUTH}/token`, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ client_id: CFG.clientId, scope: SCOPES, ...params }) });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok || !j.access_token) throw new Error(j.error_description || j.error || "Sign-in didn't work.");
+  store.set("pm_at", j.access_token); store.set("pm_at_exp", String(Date.now() + (j.expires_in - 120) * 1000));
+  if (j.refresh_token) store.set("pm_rt", j.refresh_token);
+  return j.access_token;
+}
+async function finishSignIn() {                      // back from Microsoft with ?code=...
+  const p = new URLSearchParams(location.search);
+  if (!p.has("code") && !p.has("error")) return false;
+  history.replaceState(null, "", REDIRECT);
+  if (p.get("error")) { if (p.get("error") === "login_required" || p.get("error") === "interaction_required") return "again";
+    throw new Error(p.get("error_description") || p.get("error")); }
+  const saved = JSON.parse(sessionStorage.getItem("pm_pkce") || "{}"); sessionStorage.removeItem("pm_pkce");
+  if (!saved.state || saved.state !== p.get("state")) throw new Error("The sign-in didn't match - please try again.");
+  await tokenCall({ grant_type: "authorization_code", code: p.get("code"), redirect_uri: REDIRECT, code_verifier: saved.verifier });
+  return true;
+}
+let refreshing = null;
+async function token() {
+  const at = store.get("pm_at"), exp = +store.get("pm_at_exp") || 0;
+  if (at && Date.now() < exp) return at;
+  const rt = store.get("pm_rt");
+  if (!rt) throw Object.assign(new Error("signed out"), { signin: true });
+  refreshing = refreshing || tokenCall({ grant_type: "refresh_token", refresh_token: rt })
+    .catch(e => { store.set("pm_rt", null); store.set("pm_at", null); throw Object.assign(e, { signin: true }); })
+    .finally(() => { refreshing = null; });
+  return refreshing;
+}
+async function graph(path, opt = {}) {
+  const r = await fetch(path.startsWith("http") ? path : GRAPH + path,
+    { ...opt, headers: { Authorization: `Bearer ${await token()}`, ...(opt.headers || {}) } });
+  if (r.status === 401) { store.set("pm_at", null); throw Object.assign(new Error("signed out"), { signin: true }); }
+  if (r.status === 404) return null;
+  if (!r.ok) throw new Error(`OneDrive said ${r.status}`);
+  return r.status === 204 ? {} : r.json();
+}
+function signOut() { ["pm_at", "pm_at_exp", "pm_rt", "pm_cat"].forEach(k => store.set(k, null)); location.reload(); }
+
+/* ---------- the app's folder in OneDrive: the PC's catalogue and the photo copies */
+/* Each folder is listed once (up to 1000 photos a time) and its download links kept for 45 minutes - OneDrive's
+   links stop working after about an hour. */
+const urls = new Map();                              // "t/3" -> { at, p: Promise<Map(name -> download url)> }
+let SELECT = "&$select=name,file,@microsoft.graph.downloadUrl";
+async function listOnce(path) {
+  const files = new Map();
+  let next = `/me/drive/special/approot:/${path}:/children?$top=1000${SELECT}`, sawFile = false;
+  while (next) {
+    const j = await graph(next);
+    if (!j) break;
+    for (const it of j.value || []) {
+      if (it.file || /\.jpg$/i.test(it.name || "")) sawFile = true;
+      if (it["@microsoft.graph.downloadUrl"]) files.set(it.name, it["@microsoft.graph.downloadUrl"]);
+    }
+    next = j["@odata.nextLink"] || null;
+  }
+  if (sawFile && !files.size && SELECT) { SELECT = ""; return listOnce(path); }   // (no links with $select: ask in full)
+  return files;
+}
+function listFolder(path) {
+  const got = urls.get(path);
+  if (got && Date.now() - got.at < 45 * 60 * 1000) return got.p;
+  const p = listOnce(path);
+  urls.set(path, { at: Date.now(), p });
+  p.catch(() => urls.delete(path));
+  return p;
+}
+async function fileUrl(kind, id) {                   // kind: t (small square) or m (full view)
+  try { const files = await listFolder(`${kind}/${Math.floor(id / 1000)}`); return files.get(`${id}.jpg`) || null; }
+  catch (e) { if (e.signin) needSignIn(); return null; }
+}
+const thumbUrl = id => fileUrl("t", id), mediumUrl = id => fileUrl("m", id);
+async function picUrl(key) { if (!key) return null; try { return (await listFolder("p")).get(`${key}.jpg`) || null; } catch (e) { return null; } }
+
+/* ---------- small helpers (as in the phone app) */
+const $ = (s, el = document) => el.querySelector(s);
+const h = (tag, attrs = {}, ...kids) => {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === "class") e.className = v;
+    else if (k.startsWith("on")) e.addEventListener(k.slice(2), v);
+    else if (v !== false && v != null) e.setAttribute(k, v === true ? "" : v);
+  }
+  for (const k of kids.flat()) if (k != null && k !== false) e.append(k.nodeType ? k : document.createTextNode(k));
+  return e;
+};
+const when = t => { if (!t) return ""; const d = new Date(String(t).replace(" ", "T"));
+  return isNaN(d) ? t : d.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }); };
+const span = (a, b) => !a ? "" : (!b || a === b) ? when(a) : `${when(a)} – ${when(b)}`;
+const preload = src => { if (src) { const i = new Image(); i.src = src; } };
+let S = { tab: "activities", cat: null, loose: false };
+
+/* lazy thumbnails: only the ones on screen are asked for */
+const io = new IntersectionObserver(es => es.forEach(e => {
+  if (!e.isIntersecting) return;
+  io.unobserve(e.target);
+  const img = e.target, id = +img.dataset.id, kind = img.dataset.k || "t";
+  const set = u => { if (!u) return; img.onload = () => img.classList.add("ok"); img.src = u; };
+  if (kind === "p") picUrl(img.dataset.id).then(set); else fileUrl(kind, id).then(set);
+}), { rootMargin: "400px" });
+const lazy = (id, kind = "t", cls = "") => { const i = h("img", { alt: "", decoding: "async", class: cls, "data-id": id, "data-k": kind }); io.observe(i); return i; };
+
+/* ---------- start */
+function setHead(t, sub) { $("#title").textContent = t; $("#sub").textContent = sub || ""; }
+function message(title, text, ...btns) {
+  $("#tabs").classList.add("hidden");
+  $("#main").replaceChildren(h("div", { class: "center" }, h("h2", {}, title), text ? h("p", {}, text) : null, ...btns));
+}
+function needSignIn() {
+  setHead("Photos", "");
+  message("Sign in to see your photos", "Your photos come from your OneDrive, put there by Photo Manager on the PC. "
+    + "Sign in with the same Microsoft account your OneDrive uses. This app can only see its own folder - nothing else in your OneDrive.",
+    h("button", { class: "btn gold", onclick: () => signIn("select_account") }, "Sign in with Microsoft"));
+}
+async function start() {
+  if (!CFG.clientId) {
+    return message("Nearly ready", "This page still needs its Microsoft app number (the Application ID). Claude adds it once you've made "
+      + "the app registration - see the plan in the Photo Manager project.");
+  }
+  setHead("Photos", ""); message("Opening…", "", h("div", { class: "spin" }));
+  try {
+    const back = await finishSignIn();
+    if (back === "again") return signIn("select_account");
+  } catch (e) { return message("Sign-in didn't work", e.message, h("button", { class: "btn gold", onclick: () => signIn("select_account") }, "Try again")); }
+  if (!store.get("pm_rt") && !store.get("pm_at")) return needSignIn();
+  // quick start from the last catalogue, then fresh from OneDrive
+  try { const c = JSON.parse(store.get("pm_cat") || "null"); if (c) { useCatalogue(c); openTab(S.tab); } } catch (e) {}
+  try {
+    const root = await graph("/me/drive/special/approot");               // (OneDrive makes the folder the first time)
+    if (!root) throw new Error("OneDrive didn't make the app's folder.");
+    if (!(await graph(`/me/drive/special/approot:/${MARK}`))) {         // (how the PC finds this folder)
+      await graph(`/me/drive/special/approot:/${MARK}:/content`, { method: "PUT", headers: { "Content-Type": "text/plain" },
+        body: "Photo Manager's tablet folder. The PC puts the tablet copy here (Tools > Tablet without the PC).\r\n" });
+    }
+    const meta = await graph(`/me/drive/special/approot:/catalogue.json`);
+    if (!meta || !meta["@microsoft.graph.downloadUrl"]) {
+      if (!S.cat) message("Signed in - now the PC's turn", "On the PC: Photo Manager → Tools → Tablet without the PC → "
+        + "Make the tablet copy now. When it's done and OneDrive has caught up, pull down here or press Reload.",
+        h("button", { class: "btn gold", onclick: () => location.reload() }, "Reload"));
+      return;
+    }
+    let cat;
+    try { cat = await (await fetch(meta["@microsoft.graph.downloadUrl"], { referrerPolicy: "no-referrer" })).json(); }
+    catch (e) {                                                           // (the plain link refused: ask OneDrive itself)
+      const r = await fetch(`${GRAPH}/me/drive/special/approot:/catalogue.json:/content`, { headers: { Authorization: `Bearer ${await token()}` } });
+      cat = await r.json();
+    }
+    const fresh = !S.cat || S.cat.made !== cat.made;
+    useCatalogue(cat);
+    try { store.set("pm_cat", JSON.stringify(cat)); } catch (e) { store.set("pm_cat", null); }   // (too big to keep: fine)
+    if (fresh) openTab(S.tab);
+  } catch (e) {
+    if (e.signin) return needSignIn();
+    if (!S.cat) message("Couldn't reach OneDrive", `${e.message}. Is the tablet online?`,
+      h("button", { class: "btn gold", onclick: () => location.reload() }, "Try again"));
+  }
+}
+function useCatalogue(c) {
+  S.cat = c;
+  S.byId = new Map(c.photos.map(p => [p[0], p]));
+  S.acts = c.activities.map((a, i) => ({ ...a, i, photos: [] }));
+  c.photos.forEach(p => S.acts[p[1]] && S.acts[p[1]].photos.push(p));
+  S.people = c.people.map((p, i) => ({ ...p, i }));
+  $("#tabs").classList.remove("hidden");
+}
+const fresh = () => { if (!S.cat) return ""; const d = new Date(S.cat.made.replace(" ", "T")), days = Math.round((Date.now() - d) / 864e5);
+  return `Copy made ${days <= 0 ? "today" : days === 1 ? "yesterday" : `${days} days ago`}, ${S.cat.made.slice(11, 16)}`; };
+const item = p => ({ id: p[0], where: S.acts[p[1]] ? S.acts[p[1]].title : "", taken: p[2],
+  who: p[3].map(i => S.people[i] && S.people[i].name).filter(Boolean) });
+
+/* ---------- tabs */
+document.querySelectorAll("#tabs button").forEach(b => b.onclick = () => { if (b.dataset.tab === "show") return showPicker(); openTab(b.dataset.tab); });
+function openTab(t) {
+  S.tab = t; S.inside = false;
+  document.querySelectorAll("#tabs button").forEach(b => b.classList.toggle("on", b.dataset.tab === t));
+  if (t === "people") return peopleTab();
+  activitiesTab();
+}
+$("#more").onclick = () => {
+  const sh = $("#sheet"), row = (t, d, fn) => h("button", { class: "drow", style: "padding:10px 20px", onclick: () => { closeSheet(); fn(); } },
+    h("span", {}, h("b", {}, t), h("br"), h("span", { style: "color:var(--ink3);font-size:13px" }, d)));
+  sh.replaceChildren(h("h2", {}, "Photos"), h("p", { class: "note", style: "margin:0 20px 10px" }, fresh() || "Not loaded yet"),
+    row("⟳  Reload", "Get the latest copy from OneDrive", () => location.reload()),
+    row("⎋  Sign out", "Forget the sign-in on this tablet", signOut));
+  openSheet();
+};
+function openSheet() { $("#sheetBg").style.display = "block"; requestAnimationFrame(() => $("#sheet").classList.add("open"));
+  history.pushState({ sheet: 1 }, ""); }
+function closeSheet() { if (!$("#sheet").classList.contains("open")) return; $("#sheet").classList.remove("open");
+  setTimeout(() => $("#sheetBg").style.display = "none", 250); }
+$("#sheetBg").onclick = () => history.back();
+
+/* Activities: newest first under year headings, the year chips jump down the list */
+function activitiesTab() {
+  setHead("Activities", fresh());
+  const m = $("#main"), sc = h("div", { class: "scroll" });
+  const acts = S.acts.filter(a => S.loose || !a.loose).sort((a, b) => (b.start || "").localeCompare(a.start || ""));
+  const years = [...new Set(acts.map(a => (a.start || "").slice(0, 4) || "Undated"))];
+  const q = h("input", { type: "search", placeholder: "Find an activity", "aria-label": "Find an activity" });
+  const list = h("div");
+  const draw = () => {
+    const t = q.value.trim().toLowerCase(), out = [];
+    let y = null, grid = null;
+    for (const a of acts) {
+      if (t && !a.title.toLowerCase().includes(t)) continue;
+      const ay = (a.start || "").slice(0, 4) || "Undated";
+      if (ay !== y) { y = ay; out.push(h("div", { class: "yh", id: `y${y}` }, y)); grid = h("div", { class: "cards" }); out.push(grid); }
+      grid.append(h("button", { class: "acard", onclick: () => activityView(a) },
+        h("div", { class: "cv" }, a.cover ? lazy(a.cover) : null, h("span", { class: "n" }, a.n.toLocaleString())),
+        h("div", { class: "tx" }, h("div", { class: "tt" }, a.title), h("div", { class: "dt" }, span(a.start, a.end)))));
+    }
+    list.replaceChildren(...(out.length ? out : [h("p", { class: "note" }, "Nothing matches.")]));
+  };
+  q.addEventListener("input", draw);
+  const looseB = h("button", { class: "chip" + (S.loose ? " on" : ""), onclick: () => { S.loose = !S.loose; activitiesTab(); } }, "Loose photos too");
+  sc.append(h("div", { class: "row" }, h("div", { class: "search" }, "⌕", q), looseB),
+    h("div", { class: "years" }, ...years.map(y => h("button", { class: "chip", onclick: () => { const e = document.getElementById(`y${y}`);
+      if (e) sc.scrollTo({ top: e.offsetTop - 6, behavior: "smooth" }); } }, y))), list);
+  m.replaceChildren(sc); draw();
+}
+function photoGrid(items, opts = {}) {
+  const g = h("div", { class: "grid" });
+  items.forEach((p, k) => {
+    const fl = p[4], bd = (fl & 8 ? "♛" : "") + (fl & 1 ? "★" : "");
+    g.append(h("button", { class: "th" + (fl & 6 ? " dim" : ""), "aria-label": "Open photo", onclick: () => openFull(items, k) },
+      lazy(p[0]), bd ? h("span", { class: "bd" }, bd) : null));
+  });
+  return g;
+}
+function activityView(a) {
+  if (!S.inside) history.pushState({ inside: 1 }, ""); S.inside = true;
+  setHead(a.title, span(a.start, a.end));
+  const sc = h("div", { class: "scroll" });
+  const shown = a.photos.filter(p => !(p[4] & 22));
+  sc.append(h("div", { class: "row" }, h("button", { class: "btn", onclick: () => history.back() }, "‹ Activities"),
+    h("button", { class: "btn gold", onclick: () => playShow(a.title, (shown.length ? shown : a.photos).map(item)) }, "▶ Slideshow"),
+    h("span", { class: "note" }, `${a.n.toLocaleString()} photos`)), photoGrid(a.photos));
+  $("#main").replaceChildren(sc);
+}
+
+/* People: everyone with photos, most photos first; search by name */
+function avatar(p) {
+  const letter = h("span", { class: "ltr" }, p.name.slice(0, 1).toUpperCase());
+  const box = h("span", { class: "av" }, letter);
+  if (p.pic) { const i = lazy(p.pic, "p"); i.addEventListener("load", () => letter.remove()); box.append(i); }
+  return box;
+}
+function peopleTab() {
+  setHead("People", fresh());
+  const sc = h("div", { class: "scroll" });
+  const q = h("input", { type: "search", placeholder: "Find someone", "aria-label": "Find someone" });
+  const g = h("div", { class: "pgrid" });
+  const draw = () => {
+    const t = q.value.trim().toLowerCase();
+    g.replaceChildren(...S.people.filter(p => !t || p.name.toLowerCase().includes(t)).sort((a, b) => b.n - a.n)
+      .map(p => h("button", { class: "pcard", onclick: () => personView(p) }, avatar(p),
+        h("span", { class: "nm" }, p.name), h("span", { class: "c" }, `${p.n.toLocaleString()} photos`))));
+  };
+  q.addEventListener("input", draw);
+  sc.append(h("div", { class: "row" }, h("div", { class: "search" }, "⌕", q)), g);
+  $("#main").replaceChildren(sc); draw();
+}
+function personPhotos(p) { return S.cat.photos.filter(x => x[3].includes(p.i)); }
+function personView(p) {
+  if (!S.inside) history.pushState({ inside: 1 }, ""); S.inside = true;
+  const ph = personPhotos(p);
+  setHead(p.name, `${ph.length.toLocaleString()} photos`);
+  const sc = h("div", { class: "scroll" });
+  const shown = ph.filter(x => !(x[4] & 22));
+  sc.append(h("div", { class: "row" }, h("button", { class: "btn", onclick: () => history.back() }, "‹ Everyone"),
+    h("button", { class: "btn gold", onclick: () => playShow(p.name, spread(shown.map(item), 400)) }, "▶ Slideshow")), photoGrid(ph));
+  $("#main").replaceChildren(sc);
+}
+const spread = (a, n) => a.length <= n ? a : Array.from({ length: n }, (_, k) => a[Math.floor(k * a.length / n)]);
+
+/* ---------- the full photo: swipe for the next, tap for the details */
+function openFull(items, k) {
+  const el = $("#full");
+  const ph = [h("div", { class: "ph" }), h("div", { class: "ph" })];
+  const tt = h("div", { class: "tt" }), cw = h("div", { class: "w" }), ct = h("div", { class: "t" });
+  el.replaceChildren(ph[0], ph[1], h("div", { class: "bar" }, h("button", { "aria-label": "Close", onclick: () => history.back() }, "✕"), tt),
+    h("div", { class: "cap" }, cw, ct));
+  el.classList.add("open"); history.pushState({ full: 1 }, "");
+  let cur = k, seq = 0;
+  const show = async d => {
+    cur = (cur + d + items.length) % items.length;
+    const p = items[cur], my = ++seq, it = item(p);
+    tt.textContent = `${cur + 1} of ${items.length}`;
+    cw.textContent = it.where; ct.textContent = [when(it.taken), it.who.join(", ")].filter(Boolean).join("  ·  ");
+    ph[0].style.backgroundImage = ""; thumbUrl(p[0]).then(u => { if (my === seq && u && !ph[1].style.backgroundImage) ph[0].style.backgroundImage = `url("${u}")`; });
+    ph[1].style.backgroundImage = "";
+    const u = await mediumUrl(p[0]);
+    if (my !== seq || !u) return;
+    const im = new Image(); im.onload = () => { if (my === seq) ph[1].style.backgroundImage = `url("${u}")`; }; im.src = u;
+    mediumUrl(items[(cur + 1) % items.length][0]).then(preload);
+  };
+  let sx = null, sy = null;
+  el.onpointerdown = e => { sx = e.clientX; sy = e.clientY; };
+  el.onpointerup = e => { if (sx == null || e.target.closest(".bar")) { sx = null; return; }
+    const dx = e.clientX - sx, dy = e.clientY - sy; sx = null;
+    if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) show(dx < 0 ? 1 : -1); else el.classList.toggle("idle"); };
+  S.fullKeys = { ArrowRight: () => show(1), ArrowLeft: () => show(-1), Escape: () => history.back() };
+  show(0);
+}
+function closeFull() { const el = $("#full"); el.classList.remove("open", "idle"); el.replaceChildren(); S.fullKeys = null; }
+
+/* ---------- slideshow: the best photos, someone's, or one activity's */
+function showPicker() {
+  if (!S.cat) return;
+  const sh = $("#sheet");
+  const q = h("input", { placeholder: "Or someone's photos - type a name", type: "search", "aria-label": "Someone's photos" });
+  const list = h("div", { style: "max-height:40vh;overflow:auto;margin:0 20px 12px" });
+  const draw = () => { const t = q.value.trim().toLowerCase();
+    list.replaceChildren(...S.people.filter(p => !t || p.name.toLowerCase().includes(t)).sort((a, b) => b.n - a.n).slice(0, 30)
+      .map(p => h("button", { class: "drow", onclick: () => { history.back(); setTimeout(() => playShow(p.name,
+        spread(personPhotos(p).filter(x => !(x[4] & 22)).map(item), 400)), 150); } },
+        avatar(p), h("span", {}, h("b", {}, p.name), h("br"), h("span", { style: "color:var(--ink3);font-size:13px" }, `${p.n.toLocaleString()} photos`))))); };
+  q.addEventListener("input", draw);
+  const best = () => { const b = S.cat.best.map(id => S.byId.get(id)).filter(Boolean).map(item);
+    for (let i = b.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [b[i], b[j]] = [b[j], b[i]]; } return b; };
+  sh.replaceChildren(h("h2", {}, "Slideshow"),
+    h("button", { class: "btn gold", style: "margin:0 20px 12px", onclick: () => { history.back(); setTimeout(() => playShow(null, best()), 150); } },
+      "★  The best photos"), h("div", { class: "search", style: "margin:4px 20px 8px" }, "⌕", q), list);
+  openSheet(); draw();
+}
+function showFullscreen(on) {
+  try {
+    if (on) { const d = document.documentElement, f = d.requestFullscreen || d.webkitRequestFullscreen;
+      if (f && !(document.fullscreenElement || document.webkitFullscreenElement)) { const r = f.call(d, { navigationUI: "hide" }); if (r && r.catch) r.catch(() => {}); } }
+    else if (document.fullscreenElement || document.webkitFullscreenElement) {
+      const x = document.exitFullscreen || document.webkitExitFullscreen; const r = x && x.call(document); if (r && r.catch) r.catch(() => {}); }
+  } catch (e) {}
+}
+document.addEventListener("fullscreenchange", () => {
+  if (!document.fullscreenElement && $("#show").classList.contains("open") && S.showFull) { S.showFull = false; history.back(); }
+});
+function playShow(person, items) {
+  if (!items.length) return;
+  showFullscreen(true); S.showFull = true;
+  history.pushState({ show: 1 }, "");
+  runShow(person, items);
+}
+function showMode() { return store.get("pm_show_mode") || "collage"; }
+function runShow(person, items) { if (showMode() === "collage") return collageShow(person, items); classicShow(person, items); }
+function modeButton(person, items) {
+  const b = h("button", { "aria-label": "Collage or one at a time", title: "Moving collage / one photo at a time" }, showMode() === "collage" ? "▢" : "▦");
+  b.onclick = e => { e.stopPropagation(); if (S.showStop) S.showStop(); store.set("pm_show_mode", showMode() === "collage" ? "single" : "collage"); runShow(person, items); };
+  return b;
+}
+function classicShow(person, items) {
+  const el = $("#show");
+  const layers = [h("div", { class: "sl" }), h("div", { class: "sl" })];
+  const cw = h("div", { class: "w" }), ct = h("div", { class: "t" }), prog = h("div", { class: "prog" });
+  const pbtn = h("button", { "aria-label": "Pause" }, "❚❚"), fbtn = h("button", { "aria-label": "Fill the screen" }, "⤢");
+  const bar = h("div", { class: "bar" }, h("button", { "aria-label": "Close", onclick: () => history.back() }, "✕"),
+    h("div", { class: "tt" }, person || "The best photos"), modeButton(person, items), fbtn, pbtn);
+  el.replaceChildren(...layers, h("div", { class: "cap" }, cw, ct), h("div", { class: "paused" }, h("span", {}, "Paused")), bar, prog);
+  el.className = "show open";
+  const DUR = 6000;
+  let k = -1, front = 0, timer = null, paused = false, idle = null, fill = store.get("pm_show_fill") === "1", t0 = 0, raf = null, alive = true, seq = 0;
+  (async () => { try { S.wakeLock = await navigator.wakeLock.request("screen"); } catch (e) {} })();
+  const tick = () => { if (!paused) prog.style.width = `${Math.min(100, (Date.now() - t0) / DUR * 100)}%`; raf = requestAnimationFrame(tick); };
+  const go = async d => {
+    clearTimeout(timer); const my = ++seq;
+    k = (k + d + items.length) % items.length;
+    const it = items[k], url = await mediumUrl(it.id);
+    if (!alive || my !== seq) return;
+    if (!url) { if (!paused) timer = setTimeout(() => go(d >= 0 ? 1 : -1), 300); return; }
+    const img = new Image();
+    img.onload = () => {
+      if (!alive || my !== seq) return;
+      const nx = layers[1 - front];
+      nx.style.backgroundImage = `url("${url}")`; nx.classList.toggle("fill", fill);
+      nx.classList.remove("on"); void nx.offsetWidth; nx.classList.add("on");
+      layers[front].classList.remove("on"); front = 1 - front;
+      cw.textContent = it.where || ""; ct.textContent = when(it.taken) + `  ·  ${k + 1} of ${items.length}`;
+      t0 = Date.now(); prog.style.width = "0";
+      mediumUrl(items[(k + 1) % items.length].id).then(preload);
+      if (!paused) timer = setTimeout(() => go(1), DUR);
+    };
+    img.onerror = () => { if (!paused) timer = setTimeout(() => go(d >= 0 ? 1 : -1), 300); };
+    img.src = url;
+  };
+  const pause = on => { paused = on == null ? !paused : on; el.classList.toggle("ispaused", paused); pbtn.textContent = paused ? "▶" : "❚❚";
+    clearTimeout(timer); if (!paused) { t0 = Date.now(); timer = setTimeout(() => go(1), DUR); } };
+  const poke = () => { el.classList.remove("idle"); clearTimeout(idle); idle = setTimeout(() => el.classList.add("idle"), 2600); };
+  pbtn.onclick = e => { e.stopPropagation(); pause(); poke(); };
+  fbtn.onclick = e => { e.stopPropagation(); fill = !fill; layers.forEach(l => l.classList.toggle("fill", fill)); store.set("pm_show_fill", fill ? "1" : null); poke(); };
+  let sx = null, sy = null;
+  el.onpointerdown = e => { sx = e.clientX; sy = e.clientY; };
+  el.onpointerup = e => { if (sx == null || e.target.closest(".bar")) { sx = null; return; }
+    const dx = e.clientX - sx, dy = e.clientY - sy; sx = null;
+    if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) { go(dx < 0 ? 1 : -1); poke(); return; }
+    if (el.classList.contains("idle")) poke(); else { el.classList.add("idle"); clearTimeout(idle); } };
+  el.onmousemove = () => poke();
+  S.showKeys = { ArrowRight: () => go(1), ArrowLeft: () => go(-1), " ": () => pause(), Escape: () => history.back(), f: () => fbtn.click() };
+  S.showStop = () => { alive = false; clearTimeout(timer); clearTimeout(idle); cancelAnimationFrame(raf);
+    try { S.wakeLock && S.wakeLock.release(); } catch (e) {} S.wakeLock = null; };
+  go(1); poke(); tick();
+}
+/* ---------- the moving collage (like the PC slideshow): the screen split into blocks - one big photo, two, three,
+   four, five; each block changes on its own with its own transition while every photo slowly drifts, and every few
+   changes the whole layout changes, the blocks arriving one after another. Portrait phones get the layouts turned
+   on their side. Tap: controls. Swipe: a new layout. Space / button: pause. */
+const C_LAYOUTS = [
+  [[0, 0, 1, 1]],
+  [[0, 0, .5, 1], [.5, 0, 1, 1]],
+  [[0, 0, .62, 1], [.62, 0, 1, .5], [.62, .5, 1, 1]],
+  [[0, 0, .38, .5], [0, .5, .38, 1], [.38, 0, 1, 1]],
+  [[0, 0, 1 / 3, 1], [1 / 3, 0, 2 / 3, 1], [2 / 3, 0, 1, 1]],
+  [[0, 0, .5, .5], [.5, 0, 1, .5], [0, .5, .5, 1], [.5, .5, 1, 1]],
+  [[0, 0, .5, .58], [.5, 0, 1, .58], [0, .58, 1 / 3, 1], [1 / 3, .58, 2 / 3, 1], [2 / 3, .58, 1, 1]],
+  [[0, 0, .25, .5], [0, .5, .25, 1], [.25, 0, .75, 1], [.75, 0, 1, .5], [.75, .5, 1, 1]],
+  [[0, 0, .6, .6], [.6, 0, 1, .6], [0, .6, .3, 1], [.3, .6, .6, 1], [.6, .6, 1, 1]],
+];
+const C_KINDS = ["fade", "slide", "zoom", "wipe", "flip", "iris", "blinds", "tiles", "doors", "cube", "spin", "dissolve",
+  "flash", "diagonal", "bubbles", "shatter", "iris", "doors", "cube", "tiles", "shatter", "bubbles"];
+const C_DUR = { fade: .8, slide: .8, zoom: .8, wipe: .8, flip: .8, iris: 1.1, blinds: 1.2, tiles: 1.3, doors: 1.2, cube: 1.1,
+  spin: 1.0, dissolve: 1.2, flash: 1.1, diagonal: 1.0, bubbles: 1.3, shatter: 1.4 };
+const C_GAP = 5, C_SWAP = 2.0, C_SWAPS = [3, 6];
+const ease = x => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+function rnd(seed) { let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a;
+  t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+
+function collageShow(person, items) {
+  const el = $("#show");
+  const cv = h("canvas", { style: "position:absolute;inset:0;width:100%;height:100%" });
+  const snap = document.createElement("canvas");
+  const pbtn = h("button", { "aria-label": "Pause" }, "❚❚");
+  const title = person ? person : "The best photos";
+  const bar = h("div", { class: "bar" }, h("button", { "aria-label": "Close", onclick: () => history.back() }, "✕"),
+    h("div", { class: "tt" }, title), modeButton(person, items), pbtn);
+  el.replaceChildren(cv, h("div", { class: "paused" }, h("span", {}, "Paused")), bar);
+  el.className = "show open";
+  const ctx = cv.getContext("2d");
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  let W = 0, H = 0, cells = [], layoutI = -1, swapsLeft = 0, nextSwap = 0, paused = false, pauseT = 0, raf = null,
+    idle = null, k = -1, alive = true, started = performance.now() / 1000;
+  const cache = new Map();                                 // id -> Image (the last 40 or so)
+  const PX = Math.min(1600, Math.round(Math.max(window.innerWidth, window.innerHeight) * dpr));
+  const load = it => new Promise(res => {
+    if (cache.has(it.id)) { const im = cache.get(it.id); return im.complete ? res(im) : im.addEventListener("load", () => res(im), { once: true }); }
+    const im = new Image(); im.decoding = "async";
+    im.onload = () => res(im); im.onerror = () => res(null);
+    mediumUrl(it.id).then(u => u ? (im.src = u) : res(null)); cache.set(it.id, im);
+    if (cache.size > 40) cache.delete(cache.keys().next().value);
+  });
+  const nextItem = () => { k = (k + 1) % items.length; return items[k]; };
+  load(items[0]);
+  const size = () => {
+    W = el.clientWidth; H = el.clientHeight;
+    cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+    snap.width = cv.width; snap.height = cv.height;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  };
+  size();
+  const now = () => paused ? pauseT : performance.now() / 1000;
+  const newDrift = () => ({ t0: now(), dx: Math.random() * 2 - 1, dy: Math.random() * 2 - 1, z: Math.random() < .5 ? 1 : -1 });
+
+  // a photo (or a piece of the last screen) into a block, cropped to fill it, slowly drifting
+  function pix(img, r, d, t, o = {}) {
+    if (!img) return;
+    const a = o.alpha == null ? 1 : o.alpha, sc = o.scale || 1, ox = (o.off || [0, 0])[0], oy = (o.off || [0, 0])[1];
+    const tr = { x: r.x + r.w / 2 - r.w * sc / 2 + ox, y: r.y + r.h / 2 - r.h * sc / 2 + oy, w: r.w * sc, h: r.h * sc };
+    ctx.globalAlpha = a;
+    if (img.snap) {                                        // what was on screen here before
+      ctx.drawImage(snap, img.x * dpr, img.y * dpr, img.w * dpr, img.h * dpr, tr.x, tr.y, tr.w, tr.h);
+    } else {
+      const iw = img.naturalWidth, ih = img.naturalHeight;
+      const life = d ? Math.min(1, Math.max(0, (t - d.t0) / (C_SWAP * 4))) : 0;
+      const z = 1.04 + 0.08 * (d && d.z > 0 ? life : 1 - life);
+      const s = Math.max(r.w / iw, r.h / ih) * z;          // cover, a little bigger for the drift
+      const sw = r.w / s, sh = r.h / s;
+      let sx = (iw - sw) / 2 + (d ? d.dx : 0) * (iw - sw) / 2 * (life * 2 - 1);
+      let sy = (ih - sh) / 2 + (d ? d.dy : 0) * (ih - sh) / 2 * (life * 2 - 1);
+      sx = Math.max(0, Math.min(iw - sw, sx)); sy = Math.max(0, Math.min(ih - sh, sy));
+      ctx.drawImage(img, sx, sy, sw, sh, tr.x, tr.y, tr.w, tr.h);
+    }
+    ctx.globalAlpha = 1;
+  }
+  const clipRect = (x, y, w, h) => { ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip(); };
+
+  function newScene() {
+    const portrait = H > W;
+    let ch = C_LAYOUTS.map((_, i) => i).filter(i => i !== layoutI);
+    if (items.length < 3) ch = [0];
+    layoutI = ch[Math.floor(Math.random() * ch.length)];
+    const sctx = snap.getContext("2d"); sctx.clearRect(0, 0, snap.width, snap.height);
+    if (cells.length) sctx.drawImage(cv, 0, 0);          // what's on screen now
+    const had = cells.length > 0;
+    cells = C_LAYOUTS[layoutI].map(([x0, y0, x1, y1]) => {
+      if (portrait) [x0, y0, x1, y1] = [y0, x0, y1, x1];
+      const g = C_GAP / 2;
+      const r = { x: x0 * W + (x0 > 0 ? g : 0), y: y0 * H + (y0 > 0 ? g : 0) };
+      r.w = (x1 - x0) * W - (x0 > 0 ? g : 0) - (x1 < 1 ? g : 0); r.h = (y1 - y0) * H - (y0 > 0 ? g : 0) - (y1 < 1 ? g : 0);
+      return { r, pix: had ? { snap: true, x: r.x, y: r.y, w: r.w, h: r.h } : null, drift: null, anim: null };
+    });
+    const kind = C_KINDS[Math.floor(Math.random() * C_KINDS.length)];
+    cells.forEach((c, i) => change(c, kind, i * .18));
+    swapsLeft = C_SWAPS[0] + Math.floor(Math.random() * (C_SWAPS[1] - C_SWAPS[0] + 1));
+    nextSwap = now() + C_SWAP + .6;
+  }
+  async function change(c, kind, delay = 0) {
+    const it = nextItem(); const img = await load(it);
+    if (!alive || !img || !cells.includes(c)) return;
+    load(items[(k + 1) % items.length]);                  // (the next one, ready)
+    const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]], dir = dirs[Math.floor(Math.random() * 4)];
+    c.old = c.pix; c.oldDrift = c.drift; c.pix = img; c.drift = newDrift();
+    c.anim = { kind, t0: now() + delay, ux: dir[0], uy: dir[1], seed: Math.floor(Math.random() * 1e9) };
+  }
+
+  // the transitions: q = 0..1 through it, e = eased
+  const FX = {
+    fade(c, r, q, e, t) { pix(c.old, r, c.oldDrift, t); pix(c.pix, r, c.drift, t, { alpha: e }); },
+    slide(c, r, q, e, t) { const a = c.anim;
+      pix(c.old, r, c.oldDrift, t, { off: [-a.ux * r.w * e, -a.uy * r.h * e] });
+      pix(c.pix, r, c.drift, t, { off: [a.ux * r.w * (1 - e), a.uy * r.h * (1 - e)] }); },
+    zoom(c, r, q, e, t) { pix(c.old, r, c.oldDrift, t, { scale: 1 + .15 * e, alpha: 1 - e });
+      pix(c.pix, r, c.drift, t, { scale: .7 + .3 * e, alpha: e }); },
+    wipe(c, r, q, e, t) { pix(c.old, r, c.oldDrift, t); ctx.save();
+      c.anim.ux ? clipRect(r.x, r.y, r.w * e, r.h) : clipRect(r.x, r.y, r.w, r.h * e); pix(c.pix, r, c.drift, t); ctx.restore(); },
+    flip(c, r, q, e, t) { const half = e < .5, kk = half ? 1 - e * 2 : (e - .5) * 2;
+      const rr = { x: r.x + r.w * (1 - kk) / 2, y: r.y, w: r.w * kk, h: r.h };
+      half ? pix(c.old, rr, c.oldDrift, t) : pix(c.pix, rr, c.drift, t); },
+    iris(c, r, q, e, t) { pix(c.old, r, c.oldDrift, t); ctx.save(); ctx.beginPath();
+      ctx.arc(r.x + r.w / 2, r.y + r.h / 2, Math.hypot(r.w, r.h) / 2 * e, 0, Math.PI * 2); ctx.clip();
+      pix(c.pix, r, c.drift, t); ctx.restore();
+      ctx.save(); ctx.strokeStyle = `rgba(255,255,255,${.6 * (1 - e)})`; ctx.lineWidth = 3; ctx.beginPath();
+      ctx.arc(r.x + r.w / 2, r.y + r.h / 2, Math.hypot(r.w, r.h) / 2 * e, 0, Math.PI * 2); ctx.stroke(); ctx.restore(); },
+    blinds(c, r, q, e, t) { pix(c.old, r, c.oldDrift, t); const n = 8, vert = !!c.anim.ux; ctx.save(); ctx.beginPath();
+      for (let i = 0; i < n; i++) { const p = Math.min(1, Math.max(0, q * 1.6 - i * .6 / n)), ee = ease(p);
+        if (vert) { const bw = r.w / n; ctx.rect(r.x + i * bw, r.y, bw * ee + .5, r.h); }
+        else { const bh = r.h / n; ctx.rect(r.x, r.y + i * bh, r.w, bh * ee + .5); } }
+      ctx.clip(); pix(c.pix, r, c.drift, t); ctx.restore(); },
+    tiles(c, r, q, e, t) { pix(c.old, r, c.oldDrift, t); const R = rnd(c.anim.seed), nx = 5, ny = Math.max(2, Math.round(5 * r.h / r.w));
+      const tw = r.w / nx, th = r.h / ny;
+      for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
+        const st = R() * .55, p = ease(Math.min(1, Math.max(0, (q - st) / .45)));
+        if (p <= 0) continue;
+        ctx.save(); const cx = r.x + i * tw + tw / 2, cy = r.y + j * th + th / 2;
+        clipRect(cx - tw * p / 2, cy - th * p / 2, tw * p + .5, th * p + .5); pix(c.pix, r, c.drift, t); ctx.restore(); } },
+    doors(c, r, q, e, t) { pix(c.pix, r, c.drift, t, { scale: .92 + .08 * e });
+      ctx.save(); clipRect(r.x - r.w * e / 2, r.y, r.w / 2, r.h); pix(c.old, r, c.oldDrift, t, { off: [-r.w * e / 2, 0] }); ctx.restore();
+      ctx.save(); clipRect(r.x + r.w / 2 + r.w * e / 2, r.y, r.w / 2, r.h); pix(c.old, r, c.oldDrift, t, { off: [r.w * e / 2, 0] }); ctx.restore();
+      ctx.fillStyle = `rgba(0,0,0,${.35 * (1 - e)})`; },
+    cube(c, r, q, e, t) { const a = c.anim, horiz = !!a.ux;
+      const ow = horiz ? r.w * (1 - e) : r.w, oh = horiz ? r.h : r.h * (1 - e);
+      const nw = horiz ? r.w * e : r.w, nh = horiz ? r.h : r.h * e;
+      const oldR = horiz ? { x: r.x + r.w - ow, y: r.y, w: ow, h: oh } : { x: r.x, y: r.y + r.h - oh, w: ow, h: oh };
+      const newR = { x: r.x, y: r.y, w: nw, h: nh };
+      pix(c.old, oldR, c.oldDrift, t, { alpha: 1 - e * .5 }); pix(c.pix, newR, c.drift, t, { alpha: .5 + e * .5 }); },
+    spin(c, r, q, e, t) { pix(c.old, r, c.oldDrift, t, { alpha: 1 - e }); ctx.save();
+      ctx.translate(r.x + r.w / 2, r.y + r.h / 2); ctx.rotate((1 - e) * Math.PI * .5 * (c.anim.ux || 1));
+      ctx.translate(-(r.x + r.w / 2), -(r.y + r.h / 2)); pix(c.pix, r, c.drift, t, { scale: .4 + .6 * e, alpha: e }); ctx.restore(); },
+    dissolve(c, r, q, e, t) { pix(c.old, r, c.oldDrift, t); const R = rnd(c.anim.seed), n = 14, m = Math.max(4, Math.round(n * r.h / r.w));
+      const tw = r.w / n, th = r.h / m; ctx.save(); ctx.beginPath();
+      for (let j = 0; j < m; j++) for (let i = 0; i < n; i++) if (R() < e * 1.05) ctx.rect(r.x + i * tw, r.y + j * th, tw + .5, th + .5);
+      ctx.clip(); pix(c.pix, r, c.drift, t); ctx.restore(); },
+    flash(c, r, q, e, t) { if (q < .45) pix(c.old, r, c.oldDrift, t); else pix(c.pix, r, c.drift, t);
+      const w = Math.max(0, 1 - Math.abs(q - .45) / .3); ctx.fillStyle = `rgba(255,255,255,${w * .9})`; ctx.fillRect(r.x, r.y, r.w, r.h); },
+    diagonal(c, r, q, e, t) { pix(c.old, r, c.oldDrift, t); const s = (r.w + r.h) * e; ctx.save(); ctx.beginPath();
+      ctx.moveTo(r.x, r.y); ctx.lineTo(r.x + s, r.y); ctx.lineTo(r.x, r.y + s); ctx.closePath(); ctx.clip();
+      pix(c.pix, r, c.drift, t); ctx.restore(); },
+    bubbles(c, r, q, e, t) { pix(c.old, r, c.oldDrift, t); const R = rnd(c.anim.seed), n = 14, big = Math.hypot(r.w, r.h) * .32;
+      ctx.save(); ctx.beginPath();
+      for (let i = 0; i < n; i++) { const bx = r.x + R() * r.w, by = r.y + R() * r.h, st = R() * .5;
+        const p = ease(Math.min(1, Math.max(0, (q - st) / .5))); ctx.moveTo(bx, by); ctx.arc(bx, by, big * p, 0, Math.PI * 2); }
+      ctx.clip(); pix(c.pix, r, c.drift, t); ctx.restore(); },
+    shatter(c, r, q, e, t) { pix(c.pix, r, c.drift, t); const R = rnd(c.anim.seed), nx = 4, ny = Math.max(2, Math.round(4 * r.h / r.w));
+      const tw = r.w / nx, th = r.h / ny;
+      for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) for (let tri = 0; tri < 2; tri++) {
+        const st = R() * .35, p = Math.min(1, Math.max(0, (q - st) / .65)); if (p >= 1) continue;
+        const x = r.x + i * tw, y = r.y + j * th, fall = p * p * r.h * 1.2, rot = (R() - .5) * 2 * p, drift = (R() - .5) * tw * p;
+        ctx.save(); ctx.globalAlpha = 1 - p; ctx.translate(x + tw / 2 + drift, y + th / 2 + fall); ctx.rotate(rot); ctx.translate(-(x + tw / 2), -(y + th / 2));
+        ctx.beginPath(); if (tri) { ctx.moveTo(x, y); ctx.lineTo(x + tw, y); ctx.lineTo(x, y + th); }
+        else { ctx.moveTo(x + tw, y); ctx.lineTo(x + tw, y + th); ctx.lineTo(x, y + th); } ctx.closePath(); ctx.clip();
+        pix(c.old, r, c.oldDrift, t); ctx.restore(); } },
+  };
+
+  function frame() {
+    if (!alive) return;
+    const t = now();
+    if (!paused && cells.length && t >= nextSwap) {
+      if (swapsLeft <= 0) newScene();
+      else { swapsLeft--; change(cells[Math.floor(Math.random() * cells.length)], C_KINDS[Math.floor(Math.random() * C_KINDS.length)]);
+        nextSwap = t + C_SWAP; }
+    }
+    ctx.fillStyle = "#000"; ctx.fillRect(0, 0, W, H);
+    let any = false;
+    for (const c of cells) {
+      const r = c.r, a = c.anim; ctx.save(); clipRect(r.x, r.y, r.w, r.h);
+      if (c.pix) any = true;
+      if (a && t >= a.t0 && t < a.t0 + C_DUR[a.kind]) {
+        const q = (t - a.t0) / C_DUR[a.kind];
+        if (c.old) FX[a.kind](c, r, q, ease(q), t); else pix(c.pix, r, c.drift, t, { alpha: ease(q) });
+      } else if (a && t < a.t0) pix(c.old, r, c.oldDrift, t);
+      else pix(c.pix, r, c.drift, t);
+      ctx.restore();
+    }
+    if (!any) { ctx.fillStyle = "rgba(255,255,255,.7)"; ctx.font = "600 15px system-ui"; ctx.textAlign = "center";
+      ctx.fillText("Getting the photos…", W / 2, H / 2); }
+    const el_ = performance.now() / 1000 - started;          // the title for the first few seconds
+    if (el_ < 5) {
+      const al = Math.min(1, el_ / .6, (5 - el_) / .8), bh = Math.max(H * .2, 110);
+      ctx.globalAlpha = al * .55; ctx.fillStyle = "#000"; ctx.fillRect(0, (H - bh) / 2, W, bh);
+      ctx.globalAlpha = al; ctx.fillStyle = "#fff"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      let px = Math.min(56, Math.max(26, W / 9));
+      const font = () => `600 ${px}px ${getComputedStyle(document.documentElement).getPropertyValue("--serif") || "Georgia, serif"}`;
+      ctx.font = font(); while (ctx.measureText(title).width > W * .88 && px > 16) { px *= .92; ctx.font = font(); }
+      ctx.fillText(title, W / 2, H / 2); ctx.globalAlpha = 1; ctx.textBaseline = "alphabetic";
+    }
+    raf = requestAnimationFrame(frame);
+  }
+
+  const pause = on => { const was = paused; paused = on == null ? !paused : on;
+    if (paused && !was) pauseT = performance.now() / 1000;
+    if (!paused && was) { const gap = performance.now() / 1000 - pauseT;      // carry on where it stopped
+      cells.forEach(c => { if (c.drift) c.drift.t0 += gap; if (c.oldDrift) c.oldDrift.t0 += gap; if (c.anim) c.anim.t0 += gap; });
+      nextSwap += gap; }
+    el.classList.toggle("ispaused", paused); pbtn.textContent = paused ? "▶" : "❚❚"; };
+  const poke = () => { el.classList.remove("idle"); clearTimeout(idle); idle = setTimeout(() => el.classList.add("idle"), 1800); };
+  pbtn.onclick = e => { e.stopPropagation(); pause(); poke(); };
+  let sx = null, sy = null;
+  el.onpointerdown = e => { sx = e.clientX; sy = e.clientY; };
+  el.onpointerup = e => {
+    if (sx == null || e.target.closest(".bar")) { sx = null; return; }
+    const dx = e.clientX - sx, dy = e.clientY - sy; sx = null;
+    if (Math.hypot(dx, dy) > 50) { if (!paused) newScene(); poke(); return; }
+    if (el.classList.contains("idle")) poke(); else { el.classList.add("idle"); clearTimeout(idle); }
+  };
+  el.onmousemove = () => poke();
+  const onResize = () => { size(); cells = []; newScene(); };
+  window.addEventListener("resize", onResize);
+  S.showKeys = { ArrowRight: () => newScene(), ArrowLeft: () => newScene(), " ": () => pause(), k: () => pause(),
+    Escape: () => history.back() };
+  (async () => { try { S.wakeLock = await navigator.wakeLock.request("screen"); } catch (e) {} })();
+  S.showStop = () => { alive = false; cancelAnimationFrame(raf); clearTimeout(idle); window.removeEventListener("resize", onResize);
+    el.onpointerdown = el.onpointerup = el.onmousemove = null;
+    try { S.wakeLock && S.wakeLock.release(); } catch (e) {} S.wakeLock = null; };
+  newScene(); poke(); frame();
+}
+function closeShow() {
+  const el = $("#show"); S.showFull = false; showFullscreen(false);
+  if (S.showStop) S.showStop(); S.showStop = null; S.showKeys = null;
+  el.className = "show"; el.replaceChildren();
+}
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden && $("#show").classList.contains("open") && !S.wakeLock)
+    navigator.wakeLock && navigator.wakeLock.request("screen").then(l => S.wakeLock = l).catch(() => {});
+});
+
+/* Back: closes the slideshow, the photo, the sheet, then goes back to the list */
+window.addEventListener("popstate", () => {
+  if ($("#show").classList.contains("open")) return closeShow();
+  if ($("#full").classList.contains("open")) return closeFull();
+  if ($("#sheet").classList.contains("open")) return closeSheet();
+  if (S.inside && S.cat) openTab(S.tab);
+});
+document.addEventListener("keydown", e => {
+  if ($("#show").classList.contains("open")) { const f = S.showKeys && S.showKeys[e.key]; if (f) { e.preventDefault(); f(); } return; }
+  if ($("#full").classList.contains("open")) { const f = S.fullKeys && S.fullKeys[e.key]; if (f) { e.preventDefault(); f(); } }
+});
+start();
+</script>
+</body>
+</html>
